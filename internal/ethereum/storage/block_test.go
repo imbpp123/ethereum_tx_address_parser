@@ -13,9 +13,10 @@ func TestBlockInMemoryGetCurrentBlockNumberCurrentEmpty(t *testing.T) {
 	data := storage.NewBlockInMemory()
 
 	// act
-	result := data.GetCurrentBlockNumber()
+	result, err := data.GetCurrentBlockNumber()
 
 	// assert
+	assert.ErrorIs(t, err, storage.ErrBlockCurrentNotSet)
 	assert.Equal(t, result, 0)
 }
 
@@ -25,8 +26,9 @@ func TestBlockInMemorSetGetCurrentBlock(t *testing.T) {
 	data.SetCurrentBlockNumber(10)
 
 	// act
-	result := data.GetCurrentBlockNumber()
+	result, err := data.GetCurrentBlockNumber()
 
 	// assert
+	assert.NoError(t, err)
 	assert.Equal(t, result, 10)
 }

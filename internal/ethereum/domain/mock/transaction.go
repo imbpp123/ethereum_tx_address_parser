@@ -92,6 +92,20 @@ func (mr *MockTransactionStorageMockRecorder) Exists(address, hash any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockTransactionStorage)(nil).Exists), address, hash)
 }
 
+// FetchAllByAddress mocks base method.
+func (m *MockTransactionStorage) FetchAllByAddress(address string) []data.Transaction {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchAllByAddress", address)
+	ret0, _ := ret[0].([]data.Transaction)
+	return ret0
+}
+
+// FetchAllByAddress indicates an expected call of FetchAllByAddress.
+func (mr *MockTransactionStorageMockRecorder) FetchAllByAddress(address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAllByAddress", reflect.TypeOf((*MockTransactionStorage)(nil).FetchAllByAddress), address)
+}
+
 // SaveForAddress mocks base method.
 func (m *MockTransactionStorage) SaveForAddress(address string, transaction *data.Transaction) {
 	m.ctrl.T.Helper()
