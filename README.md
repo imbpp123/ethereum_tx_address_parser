@@ -4,6 +4,11 @@ This parser watchs Ethereum network for specific address and returns it's transa
 
 ## How to run
 
+Install project:
+```
+go mod tidy
+```
+
 Run project (address is hardcoded in main.go):
 
 ```
