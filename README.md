@@ -1,16 +1,37 @@
 # Ethereum transaction parser
 
-This parser watchs ethereum network for specific address and returns it's transaction information.
-
-The goal of this project is to build application without any external library.
+This parser watchs Ethereum network for specific address and returns it's transaction information.
 
 ## How to run
+
+Run project (address is hardcoded in main.go):
 
 ```
 make run
 ```
 
-## Additional notes
+Run tests:
+```
+make tests
+```
 
-This is an example of GoLang application with e2e tests for ethereum package (Parser).
-There is only 1 test implemeted because it is only example. It is not enough to have only 1 test.
+## Solution Architecture
+
+Solution is built using DDD approach. There are following layers in application:
+
+* ethereum/data - contains data objects
+* ethereum/rpc - clients for ethereum network communication
+* ethereum/storage - storages for data objects, repositories
+* ethereum/domain - services for domains: block, transaction, address
+
+Everything is combined in Parser. 
+ 
+### Tests
+
+Each package has unit test coverage
+Parser has 1 integration test
+
+### Logging
+
+Domain package write logs because it is business logic of application. 
+Log level can be changed in main.go
