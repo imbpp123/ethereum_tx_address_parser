@@ -10,18 +10,29 @@ import (
 	"time"
 
 	"trust_walet/internal/ethereum"
+	"trust_walet/internal/ethereum/domain"
+	"trust_walet/internal/ethereum/rpc"
+	"trust_walet/internal/ethereum/storage"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	address := "0xa8dfb8cc7f9843c3e7bec636bd08c3487b72dc40"
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+	logrus.SetLevel(logrus.WarnLevel)
+	//logrus.SetLevel(logrus.InfoLevel)
+	//logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetReportCaller(true)
+
+	address := "0xe7d36d7f5832349f7a9f04c898a1e47992f02bd5"
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	client := ethereum.NewRpc(&http.Client{}, ethereum.RPCUrl)
-	storage := ethereum.NewInMemory()
-	parser := ethereum.NewParser(client, storage)
+	parser := createParser(rpc.EthereumUrl)
 
 	parser.Subscribe(address)
 
@@ -81,4 +92,28 @@ func main() {
 			time.Sleep(5 * time.Second)
 		}
 	}
+}
+
+func createParser(url string) *ethereum.Parser {
+	client := rpc.NewHttp(&http.Client{}, url)
+
+	addressService := domain.NewAddressService(
+		storage.NewAddressInMemory(),
+	)
+	transactionService := domain.NewTransactionService(
+		client,
+		addressService,
+		storage.NewTransactionInMemory(),
+	)
+	blockService := domain.NewBlockService(
+		client,
+		storage.NewBlockInMemory(),
+		transactionService,
+	)
+
+	return ethereum.NewParser(
+		addressService,
+		blockService,
+		transactionService,
+	)
 }

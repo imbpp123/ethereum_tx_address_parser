@@ -9,9 +9,6 @@ import (
 	"io"
 	"net/http"
 	"sync/atomic"
-	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -102,16 +99,6 @@ func (r *Http) GetBlockByNumber(ctx context.Context, number string) (*Block, err
 }
 
 func (r *Http) sendRequest(ctx context.Context, reqBody *rpcRequest) (*rpcResponse, error) {
-	log := logrus.WithFields(logrus.Fields{
-		"method":     reqBody.Method,
-		"params":     reqBody.Params,
-		"request_id": reqBody.ID,
-	})
-
-	start := time.Now()
-
-	log.Debug("Sending request to Ethereum node")
-
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("error encoding request: %w", err)
@@ -144,21 +131,8 @@ func (r *Http) sendRequest(ctx context.Context, reqBody *rpcRequest) (*rpcRespon
 	}
 
 	if rpcResp.Error != nil {
-		log.
-			WithFields(logrus.Fields{
-				"error_code":    rpcResp.Error.Code,
-				"error_message": rpcResp.Error.Message,
-			}).
-			Error("RPC error happened")
-
 		return nil, ErrRPCResponseError
 	}
-
-	log.
-		WithFields(logrus.Fields{
-			"duration": time.Since(start),
-		}).
-		Debug("Request is done")
 
 	return &rpcResp, nil
 }

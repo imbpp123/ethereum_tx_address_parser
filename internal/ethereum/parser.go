@@ -3,149 +3,65 @@ package ethereum
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strconv"
-	"sync"
+
+	"trust_walet/internal/ethereum/data"
 )
 
 type (
-	Transaction struct {
-		Hash  string
-		From  string
-		To    string
-		Value string
+	AddressService interface {
+		AddUnique(address string) bool
 	}
 
-	RpcClient interface {
-		GetTransactionByHash(ctx context.Context, hash string) (*RPCTransaction, error)
-		GetBlockByNumber(ctx context.Context, number string) (*RPCBlock, error)
+	BlockService interface {
+		GetCurrentNumber(defaultIfEmpty int) (int, error)
+		ProcessNewBlocks(ctx context.Context) error
 	}
 
-	TxStorage interface {
-		Save(address string, transaction *Transaction)
-		Exists(address, hash string) bool
-		FetchAllByAddress(address string) []Transaction
+	TransactionService interface {
+		FetchAllByAddress(address string) []data.Transaction
 	}
 
 	Parser struct {
-		client             RpcClient
-		transactionStorage TxStorage
-
-		addresses    []string
-		currentBlock int
-
-		muBlock   sync.RWMutex
-		muAddress sync.RWMutex
+		address     AddressService
+		block       BlockService
+		transaction TransactionService
 	}
 )
 
 func NewParser(
-	client RpcClient,
-	transactionStorage TxStorage,
+	address AddressService,
+	block BlockService,
+	transaction TransactionService,
 ) *Parser {
 	return &Parser{
-		client:             client,
-		transactionStorage: transactionStorage,
-		currentBlock:       0,
+		transaction: transaction,
+		block:       block,
+		address:     address,
 	}
 }
 
 func (p *Parser) GetCurrentBlock() int {
-	p.muBlock.RLock()
-	defer p.muBlock.RUnlock()
+	value, err := p.block.GetCurrentNumber(0)
+	if err != nil {
+		return 0
+	}
 
-	return p.currentBlock
+	return value
 }
 
 func (p *Parser) Subscribe(address string) bool {
-	p.muAddress.Lock()
-	defer p.muAddress.Unlock()
-
-	if slices.Contains(p.addresses, address) {
-		return false
-	}
-
-	p.addresses = append(p.addresses, address)
-
-	return true
+	return p.address.AddUnique(address)
 }
 
-func (p *Parser) GetTransactions(address string) []Transaction {
-	transactions := p.transactionStorage.FetchAllByAddress(address)
-
-	return transactions
+func (p *Parser) GetTransactions(address string) []data.Transaction {
+	return p.transaction.FetchAllByAddress(address)
 }
 
 func (p *Parser) MonitorTransactions(ctx context.Context) error {
-	latestBlock, err := p.client.GetBlockByNumber(ctx, NumberLatest)
+	err := p.block.ProcessNewBlocks(ctx)
 	if err != nil {
-		return fmt.Errorf("error fetching latest block for monitoring: %v", err)
-	}
-
-	latestNumber, err := p.hexToInt(latestBlock.Number)
-	if err != nil {
-		return fmt.Errorf("error converting block number to int: %v", err)
-	}
-
-	p.muBlock.Lock()
-	if p.currentBlock == 0 {
-		p.currentBlock = latestNumber
-	}
-	currentBlock := p.currentBlock
-	p.muBlock.Unlock()
-
-	for i := currentBlock; i <= latestNumber; i++ {
-		err := p.processBlock(ctx, i)
-		if err != nil {
-			return fmt.Errorf("error processing block %d: %v", i, err)
-		}
-
-		p.muBlock.Lock()
-		p.currentBlock = i
-		p.muBlock.Unlock()
+		return fmt.Errorf("failed to process new blocks: %w", err)
 	}
 
 	return nil
-}
-
-// processBlock processes transactions from ethereum blocks
-func (p *Parser) processBlock(ctx context.Context, blockNumber int) error {
-	newBlock, err := p.client.GetBlockByNumber(ctx, fmt.Sprintf("0x%x", blockNumber))
-	if err != nil {
-		return fmt.Errorf("error getting block %d for processing: %v", blockNumber, err)
-	}
-
-	for _, tx := range newBlock.Transactions {
-		for _, a := range []string{tx.From, tx.To} {
-			if a == "" {
-				// transaction.To field can be empty
-				continue
-			}
-
-			p.muAddress.RLock()
-			canSaveTransaction := slices.Contains(p.addresses, a)
-			p.muAddress.RUnlock()
-
-			if canSaveTransaction && !p.transactionStorage.Exists(a, tx.Hash) {
-				p.transactionStorage.Save(a, &Transaction{
-					Hash:  tx.Hash,
-					From:  tx.From,
-					To:    tx.To,
-					Value: tx.Value,
-				})
-			}
-		}
-	}
-
-	return nil
-}
-
-// hexToInt convert ethereum hex to int
-func (p *Parser) hexToInt(hexStr string) (int, error) {
-	number, err := strconv.ParseInt(hexStr[2:], 16, 0)
-	if err != nil {
-		return 0, fmt.Errorf("error pasring ethereum hex to int: %v", err)
-	}
-
-	return int(number), nil
 }
